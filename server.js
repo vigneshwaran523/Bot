@@ -36,5 +36,51 @@ app.post("/whatsapp", async (req, res) => {
   res.end(twiml.toString());
 });
 
+// ✅ ADD ADMIN ROUTES HERE 👇
+
+app.get("/admin", (req, res) => {
+  res.send(`
+    <h2>Add Location</h2>
+    <form method="POST" action="/add-location">
+      <input name="name" placeholder="Name" required /><br/><br/>
+      <input name="keyword" placeholder="Keyword" required /><br/><br/>
+      <input name="maplink" placeholder="Google Maps Link" required /><br/><br/>
+      <input name="address" placeholder="Address" required /><br/><br/>
+      <button type="submit">Add Location</button>
+    </form>
+  `);
+});
+
+app.post("/add-location", async (req, res) => {
+  const { name, keyword, maplink, address } = req.body;
+
+  let latitude, longitude;
+
+  const match = maplink.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+
+  if (match) {
+    latitude = parseFloat(match[1]);
+    longitude = parseFloat(match[2]);
+  } else {
+    const altMatch = maplink.match(/q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (altMatch) {
+      latitude = parseFloat(altMatch[1]);
+      longitude = parseFloat(altMatch[2]);
+    } else {
+      return res.send("Invalid Google Maps link ❌");
+    }
+  }
+
+  await Location.create({
+    name,
+    keyword: keyword.toLowerCase(),
+    latitude,
+    longitude,
+    address
+  });
+
+  res.send("Location Added Successfully ✅ <br><a href='/admin'>Add Another</a>");
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("Server running on port " + PORT));
