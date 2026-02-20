@@ -2,6 +2,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const { MessagingResponse } = require("twilio").twiml;
 
+const axios = require("axios");
 const app = express();
 app.use(express.urlencoded({ extended: false }));
 
@@ -54,32 +55,36 @@ app.get("/admin", (req, res) => {
 app.post("/add-location", async (req, res) => {
   const { name, keyword, maplink, address } = req.body;
 
-  let latitude, longitude;
+  try {
+    // Expand short URL
+    const response = await axios.get(maplink);
+    const finalUrl = response.request.res.responseUrl;
 
-  const match = maplink.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    let latitude, longitude;
 
-  if (match) {
-    latitude = parseFloat(match[1]);
-    longitude = parseFloat(match[2]);
-  } else {
-    const altMatch = maplink.match(/q=(-?\d+\.\d+),(-?\d+\.\d+)/);
-    if (altMatch) {
-      latitude = parseFloat(altMatch[1]);
-      longitude = parseFloat(altMatch[2]);
+    // Extract from @lat,long
+    const match = finalUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+
+    if (match) {
+      latitude = parseFloat(match[1]);
+      longitude = parseFloat(match[2]);
     } else {
-      return res.send("Invalid Google Maps link ❌");
+      return res.send("Could not extract coordinates ❌");
     }
+
+    await Location.create({
+      name,
+      keyword: keyword.toLowerCase(),
+      latitude,
+      longitude,
+      address
+    });
+
+    res.send("Location Added Successfully ✅ <br><a href='/admin'>Add Another</a>");
+
+  } catch (error) {
+    res.send("Invalid or unreachable Google Maps link ❌");
   }
-
-  await Location.create({
-    name,
-    keyword: keyword.toLowerCase(),
-    latitude,
-    longitude,
-    address
-  });
-
-  res.send("Location Added Successfully ✅ <br><a href='/admin'>Add Another</a>");
 });
 
 const PORT = process.env.PORT || 3000;
