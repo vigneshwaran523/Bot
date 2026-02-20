@@ -2,7 +2,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const { MessagingResponse } = require("twilio").twiml;
 
-const axios = require("axios");
+
 const app = express();
 app.use(express.urlencoded({ extended: false }));
 
@@ -12,8 +12,7 @@ mongoose.connect("mongodb+srv://waran8774_db_user:vign2004@cluster0.nsnaiix.mong
 const Location = mongoose.model("Location", {
   name: String,
   keyword: String,
-  latitude: Number,
-  longitude: Number,
+  maplink: String,
   address: String
 });
 
@@ -26,7 +25,7 @@ app.post("/whatsapp", async (req, res) => {
   if (results.length > 0) {
     results.forEach(loc => {
       twiml.message(
-        `📍 ${loc.name}\n${loc.address}\nhttps://maps.google.com/?q=${loc.latitude},${loc.longitude}`
+        `📍 ${loc.name}\n${loc.address}\n${loc.maplink}`
       );
     });
   } else {
@@ -55,36 +54,14 @@ app.get("/admin", (req, res) => {
 app.post("/add-location", async (req, res) => {
   const { name, keyword, maplink, address } = req.body;
 
-  try {
-    // Expand short URL
-    const response = await axios.get(maplink);
-    const finalUrl = response.request.res.responseUrl;
+  await Location.create({
+    name,
+    keyword: keyword.toLowerCase(),
+    maplink,
+    address
+  });
 
-    let latitude, longitude;
-
-    // Extract from @lat,long
-    const match = finalUrl.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-
-    if (match) {
-      latitude = parseFloat(match[1]);
-      longitude = parseFloat(match[2]);
-    } else {
-      return res.send("Could not extract coordinates ❌");
-    }
-
-    await Location.create({
-      name,
-      keyword: keyword.toLowerCase(),
-      latitude,
-      longitude,
-      address
-    });
-
-    res.send("Location Added Successfully ✅ <br><a href='/admin'>Add Another</a>");
-
-  } catch (error) {
-    res.send("Invalid or unreachable Google Maps link ❌");
-  }
+  res.send("Location Added Successfully ✅ <br><a href='/admin'>Add Another</a>");
 });
 
 const PORT = process.env.PORT || 3000;
